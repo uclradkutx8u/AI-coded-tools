@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="window_background">#FAFAFC</color>
+    <color name="text_primary">#17191F</color>
+    <color name="text_secondary">#5D6370</color>
+    <color name="info_background">#EEF2FC</color>
+    <color name="info_text">#3C465D</color>
+    <color name="admin_active">#237A3B</color>
+    <color name="admin_inactive">#B3261E</color>
+    <color name="accent">#4F72B8</color>
+    <color name="card_background">#F0F4FC</color>
+    <color name="preset_idle_background">#FFFFFF</color>
+    <color name="preset_selected_background">#356AE6</color>
+    <color name="preset_selected_text">#FFFFFF</color>
+    <color name="card_stroke">#CCD5E5</color>
+    <color name="icon_background">#101E75</color>
+    <color name="action_button_background">#E1E6EF</color>
+</resources>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PhoneRest</string>
+    <string name="admin_description">允许 PhoneRest 在达到连续亮屏阈值时立即锁屏。</string>
+    <string name="notification_channel">连续亮屏计时</string>
+    <string name="notification_title">PhoneRest 正在计时</string>
+    <string name="screen_time_initial">本轮连续亮屏 00:00</string>
+    <string name="screen_time_format">本轮连续亮屏 %1$02d:%2$02d</string>
+    <string name="monitor_switch">连续亮屏后锁屏</string>
+    <string name="limit_label">触发时长（5–60 分钟）</string>
+    <string name="reminder_switch">自动锁屏前提醒</string>
+    <string name="reminder_label">提前时间（1–5 分钟）</string>
+    <string name="minutes_unit">分钟</string>
+    <string name="minutes_1">1 分钟</string>
+    <string name="minutes_2">2 分钟</string>
+    <string name="minutes_3">3 分钟</string>
+    <string name="minutes_5">5 分钟</string>
+    <string name="minutes_15">15 分钟</string>
+    <string name="minutes_20">20 分钟</string>
+    <string name="minutes_25">25 分钟</string>
+    <string name="minutes_30">30 分钟</string>
+    <string name="authorize_admin">授权设备管理员</string>
+    <string name="lock_now_test">立即锁屏（测试）</string>
+    <string name="open_background_settings">打开应用后台设置</string>
+    <string name="show_chibi_portrait">点击展示chibi大头</string>
+    <string name="background_advice">Android 系统建议：允许应用在后台运行，将电池使用设为“不受限制”，并避免加入休眠或深度休眠应用。极端省电或手动清理后台仍可能停止计时。</string>
+    <string name="admin_already_active">设备管理员已授权</string>
+    <string name="admin_explanation">PhoneRest 只使用“立即锁屏”权限，不会读取或删除你的数据。</string>
+    <string name="admin_permission_expired">锁屏权限失效，请重新授权</string>
+    <string name="admin_required">请先授权设备管理员</string>
+    <string name="admin_status_active">设备管理员：已授权，可以自动锁屏</string>
+    <string name="admin_status_inactive">设备管理员：未授权，暂时无法锁屏</string>
+    <string name="notification_channel_description">保持连续亮屏计时在后台可靠运行</string>
+    <string name="lock_reminder_format">%1$d 分钟后自动熄屏</string>
+    <string name="notification_elapsed_format">已连续亮屏 %1$d 分钟 / %2$d 分钟</string>
+    <string name="notification_screen_off">屏幕已熄灭，本轮计时为 0</string>
+</resources>
