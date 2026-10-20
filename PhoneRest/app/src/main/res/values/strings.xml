@@ -4,6 +4,8 @@
     <string name="admin_description">允许 PhoneRest 在达到连续亮屏阈值时立即锁屏。</string>
     <string name="notification_channel">连续亮屏计时</string>
     <string name="notification_title">PhoneRest 正在计时</string>
+    <string name="notification_open_app">打开应用</string>
+    <string name="timer_reset_confirmation">计时已重置</string>
     <string name="screen_time_initial">本轮连续亮屏 00:00</string>
     <string name="screen_time_format">本轮连续亮屏 %1$02d:%2$02d</string>
     <string name="monitor_switch">连续亮屏后锁屏</string>

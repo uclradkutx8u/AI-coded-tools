@@ -69,6 +69,7 @@ class DurationControl(
     }
 
     private fun setValue(minutes: Int, persist: Boolean = true) {
+        val previousValue = currentValue
         currentValue = minutes.coerceIn(range)
         isSynchronizing = true
         seekBar.progress = currentValue - range.first
@@ -79,7 +80,7 @@ class DurationControl(
         }
         updatePresetButtons(presetButtons, currentValue)
         isSynchronizing = false
-        if (persist) persistValue(currentValue)
+        if (persist && currentValue != previousValue) persistValue(currentValue)
     }
 
     private fun normalizeInput() {

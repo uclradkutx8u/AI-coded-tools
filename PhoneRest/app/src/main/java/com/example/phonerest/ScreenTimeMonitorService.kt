@@ -11,17 +11,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
-import android.graphics.Color
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.ForegroundColorSpan
-import android.text.style.ScaleXSpan
 import android.widget.Toast
 
 class ScreenTimeMonitorService : Service() {
@@ -30,17 +24,14 @@ class ScreenTimeMonitorService : Service() {
         const val EXTRA_ELAPSED_MS = "elapsed_ms"
         const val EXTRA_SCREEN_ON = "screen_on"
         private const val CHANNEL_ID = "continuous_screen_timer"
+        private const val ACTION_RESET_TIMER = "com.example.phonerest.ACTION_RESET_TIMER"
         private const val NOTIFICATION_ID = 1003
         private const val TICK_MS = 1_000L
         private const val NOTIFICATION_UPDATE_MS = 60_000L
 
         fun start(context: Context) {
             val intent = Intent(context, ScreenTimeMonitorService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
 
         fun stop(context: Context) {
@@ -52,6 +43,8 @@ class ScreenTimeMonitorService : Service() {
     private lateinit var powerManager: PowerManager
     private lateinit var devicePolicyManager: DevicePolicyManager
     private lateinit var adminComponent: ComponentName
+    private lateinit var notificationManager: NotificationManager
+    private var timerToast: Toast? = null
 
     private var isScreenOn = false
     private var screenOnStartedAt = 0L
@@ -64,29 +57,21 @@ class ScreenTimeMonitorService : Service() {
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            when (intent.action) {
-                Intent.ACTION_SCREEN_ON -> {
-                    isScreenOn = true
-                    screenOnStartedAt = SystemClock.elapsedRealtime()
-                    reminderSent = false
-                    lastNotificationUpdateAt = 0L
-                    publishTick()
-                }
-                Intent.ACTION_SCREEN_OFF -> {
-                    isScreenOn = false
-                    screenOnStartedAt = 0L
-                    reminderSent = false
-                    lastNotificationUpdateAt = 0L
-                    publishTick()
-                }
-            }
+            if (intent.action != Intent.ACTION_SCREEN_ON &&
+                intent.action != Intent.ACTION_SCREEN_OFF) return
+            resetTimer(intent.action == Intent.ACTION_SCREEN_ON)
+            publishTick()
+            updateNotification()
+            scheduleTicker()
         }
     }
 
     private val ticker = object : Runnable {
         override fun run() {
             tick()
-            handler.postDelayed(this, TICK_MS)
+            if (isScreenOn && UserPreferences.isMonitoringEnabled(this@ScreenTimeMonitorService)) {
+                handler.postDelayed(this, TICK_MS)
+            }
         }
     }
 
@@ -95,6 +80,7 @@ class ScreenTimeMonitorService : Service() {
         powerManager = getSystemService(PowerManager::class.java)
         devicePolicyManager = getSystemService(DevicePolicyManager::class.java)
         adminComponent = ComponentName(this, ScreenLockAdminReceiver::class.java)
+        notificationManager = getSystemService(NotificationManager::class.java)
         createNotificationChannel()
 
         registerReceiver(screenReceiver, IntentFilter().apply {
@@ -103,9 +89,7 @@ class ScreenTimeMonitorService : Service() {
         })
         receiverRegistered = true
 
-        isScreenOn = powerManager.isInteractive
-        screenOnStartedAt = if (isScreenOn) SystemClock.elapsedRealtime() else 0L
-        handler.post(ticker)
+        resetTimer(powerManager.isInteractive)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -113,17 +97,41 @@ class ScreenTimeMonitorService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        if (intent?.action == ACTION_RESET_TIMER) {
+            resetTimer(powerManager.isInteractive)
+            showTimerToast(getString(R.string.timer_reset_confirmation))
+        }
         startForeground(NOTIFICATION_ID, buildNotification(currentElapsedMs()))
+        lastNotificationUpdateAt = SystemClock.elapsedRealtime()
+        publishTick()
+        scheduleTicker()
         return START_STICKY
     }
 
     override fun onDestroy() {
         handler.removeCallbacks(ticker)
+        timerToast?.cancel()
         if (receiverRegistered) unregisterReceiver(screenReceiver)
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun resetTimer(screenOn: Boolean) {
+        isScreenOn = screenOn
+        screenOnStartedAt = if (screenOn) SystemClock.elapsedRealtime() else 0L
+        reminderSent = false
+    }
+
+    private fun scheduleTicker() {
+        handler.removeCallbacks(ticker)
+        if (isScreenOn) handler.post(ticker)
+    }
+
+    private fun updateNotification() {
+        notificationManager.notify(NOTIFICATION_ID, buildNotification(currentElapsedMs()))
+        lastNotificationUpdateAt = SystemClock.elapsedRealtime()
+    }
 
     private fun tick() {
         if (!UserPreferences.isMonitoringEnabled(this)) {
@@ -141,6 +149,7 @@ class ScreenTimeMonitorService : Service() {
             reminderEnabled != lastReminderEnabled
         ) {
             reminderSent = false
+            if (limitMinutes != lastLimitMinutes) updateNotification()
             lastLimitMinutes = limitMinutes
             lastReminderMinutes = reminderMinutes
             lastReminderEnabled = reminderEnabled
@@ -161,8 +170,8 @@ class ScreenTimeMonitorService : Service() {
         }
 
         if (isScreenOn && elapsed >= limitMs) {
-            screenOnStartedAt = SystemClock.elapsedRealtime()
-            reminderSent = false
+            resetTimer(screenOn = true)
+            updateNotification()
             if (devicePolicyManager.isAdminActive(adminComponent)) {
                 try {
                     devicePolicyManager.lockNow()
@@ -175,9 +184,7 @@ class ScreenTimeMonitorService : Service() {
         publishTick()
         val now = SystemClock.elapsedRealtime()
         if (now - lastNotificationUpdateAt >= NOTIFICATION_UPDATE_MS) {
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.notify(NOTIFICATION_ID, buildNotification(currentElapsedMs()))
-            lastNotificationUpdateAt = now
+            updateNotification()
         }
     }
 
@@ -197,44 +204,38 @@ class ScreenTimeMonitorService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.notification_channel),
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = getString(R.string.notification_channel_description)
-                setShowBadge(false)
-            }
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            getString(R.string.notification_channel),
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = getString(R.string.notification_channel_description)
+            setShowBadge(false)
         }
+        notificationManager.createNotificationChannel(channel)
     }
 
     private fun showLockReminder(minutes: Int) {
-        val text = getString(R.string.lock_reminder_format, minutes)
-        val emphasizedText = SpannableString(text).apply {
-            setSpan(
-                ForegroundColorSpan(Color.WHITE),
-                0,
-                length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            setSpan(
-                ScaleXSpan(1.08f),
-                0,
-                length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-        }
-        Toast.makeText(
+        showTimerToast(getString(R.string.lock_reminder_format, minutes))
+    }
+
+    private fun showTimerToast(text: String) {
+        timerToast?.cancel()
+        timerToast = Toast.makeText(
             applicationContext,
-            emphasizedText,
+            text,
             Toast.LENGTH_LONG
-        ).show()
+        ).also { it.show() }
     }
 
     private fun buildNotification(elapsedMs: Long): Notification {
-        val contentIntent = PendingIntent.getActivity(
+        val resetIntent = PendingIntent.getService(
+            this,
+            1,
+            Intent(this, ScreenTimeMonitorService::class.java).setAction(ACTION_RESET_TIMER),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val openAppIntent = PendingIntent.getActivity(
             this,
             0,
             Intent(this, MainActivity::class.java),
@@ -253,18 +254,18 @@ class ScreenTimeMonitorService : Service() {
             getString(R.string.notification_screen_off)
         }
 
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-        }
-
-        return builder
+        return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.notification_title))
             .setContentText(text)
-            .setContentIntent(contentIntent)
+            .setContentIntent(resetIntent)
+            .addAction(
+                Notification.Action.Builder(
+                    null,
+                    getString(R.string.notification_open_app),
+                    openAppIntent
+                ).build()
+            )
             .setOnlyAlertOnce(true)
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_SERVICE)

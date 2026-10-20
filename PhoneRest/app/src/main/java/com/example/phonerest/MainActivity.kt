@@ -104,12 +104,18 @@ class MainActivity : Activity() {
         super.onResume()
         refreshAdminStatus()
         syncingSwitches = true
-        val monitoringEnabled = UserPreferences.isMonitoringEnabled(this)
+        val monitoringEnabled = UserPreferences.isMonitoringEnabled(this) &&
+            devicePolicyManager.isAdminActive(adminComponent)
+        if (!monitoringEnabled) {
+            UserPreferences.setMonitoringEnabled(this, false)
+            ScreenTimeMonitorService.stop(this)
+            updateTimer(0L, false)
+        }
         monitorSwitch.isChecked = monitoringEnabled
         reminderSwitch.isChecked = UserPreferences.isReminderEnabled(this)
         syncingSwitches = false
         setReminderControlsEnabled(reminderSwitch.isChecked)
-        if (monitoringEnabled && devicePolicyManager.isAdminActive(adminComponent)) {
+        if (monitoringEnabled) {
             startScreenTimeMonitor()
         }
     }
